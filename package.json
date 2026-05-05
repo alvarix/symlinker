@@ -1,0 +1,15 @@
+{
+  "name": "symlinker",
+  "version": "0.1.0",
+  "description": "Move files/folders to another location and symlink them back. Built for shuttling docs into an Obsidian vault while leaving symlinks in your dev repos.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/linker.test.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

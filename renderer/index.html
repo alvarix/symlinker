@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+    <title>Symlinker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header class="sidebar-header">
+          <h1>Symlinker</h1>
+          <button id="new-project-btn" class="primary">New project</button>
+        </header>
+        <ul id="project-list" class="project-list"></ul>
+        <footer class="sidebar-footer">
+          <label class="dryrun-toggle">
+            <input type="checkbox" id="dry-run-toggle" />
+            <span>Dry run (preview only)</span>
+          </label>
+        </footer>
+      </aside>
+      <main id="detail">
+        <div id="empty-state" class="empty-state">
+          <h2>No project selected</h2>
+          <p>Create a project to pair a source folder (like a dev repo) with a destination (like an Obsidian vault subfolder). Then move files or folders between them. The original location keeps a symlink so everything still works.</p>
+        </div>
+        <section id="project-detail" hidden>
+          <header class="project-header">
+            <div class="project-title">
+              <h2 id="project-name"></h2>
+              <button id="rename-project-btn" class="ghost" title="Rename">Rename</button>
+            </div>
+            <div class="project-paths">
+              <div class="path-row">
+                <span class="path-label">Source</span>
+                <code id="project-source"></code>
+                <button class="ghost reveal-btn" data-target="source">Reveal</button>
+              </div>
+              <div class="path-row">
+                <span class="path-label">Dest</span>
+                <code id="project-dest"></code>
+                <button class="ghost reveal-btn" data-target="dest">Reveal</button>
+              </div>
+            </div>
+            <div class="project-actions">
+              <button id="reverse-all-btn" class="warning">Reverse all</button>
+              <button id="refresh-btn" class="ghost">Refresh</button>
+              <button id="delete-project-btn" class="danger">Delete project</button>
+            </div>
+          </header>
+          <section class="source-browser" id="source-browser">
+            <div class="source-browser-header">
+              <h3>Source files</h3>
+              <div class="source-browser-controls">
+                <label class="select-all-label">
+                  <input type="checkbox" id="select-all-check" />
+                  Select all
+                </label>
+                <button id="link-selected-btn" class="primary" disabled>Link selected</button>
+              </div>
+            </div>
+            <ul id="source-file-list" class="source-file-list"></ul>
+            <p id="source-browser-empty" class="muted" hidden>All source files are already linked.</p>
+          </section>
+          <section class="items-section">
+            <h3>Linked items</h3>
+            <table id="items-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Path (relative to source)</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="items-body"></tbody>
+            </table>
+            <p id="items-empty" class="muted" hidden>No items linked yet. Use "Add item" to move a file or folder into the destination.</p>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal: New project -->
+    <dialog id="new-project-dialog" class="modal">
+      <form method="dialog" id="new-project-form">
+        <h2>New project</h2>
+        <label>
+          Name
+          <input type="text" name="name" placeholder="e.g. MyRepo Docs" />
+        </label>
+        <label>
+          Source root
+          <div class="path-input">
+            <input type="text" name="sourceRoot" required placeholder="/path/to/repo" />
+            <button type="button" class="ghost" data-pick="sourceRoot">Browse</button>
+          </div>
+          <small>The folder that holds files you want to relocate (e.g. a dev repo).</small>
+        </label>
+        <label>
+          Destination root
+          <div class="path-input">
+            <input type="text" name="destRoot" required placeholder="/path/to/vault/subfolder" />
+            <button type="button" class="ghost" data-pick="destRoot">Browse</button>
+          </div>
+          <small>Where the actual files will live (e.g. an Obsidian vault subfolder).</small>
+        </label>
+        <p class="modal-error" id="new-project-error" hidden></p>
+        <div class="modal-actions">
+          <button type="button" class="ghost" data-close>Cancel</button>
+          <button type="submit" class="primary">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Modal: Confirm -->
+    <dialog id="confirm-dialog" class="modal">
+      <form method="dialog" id="confirm-form">
+        <h2 id="confirm-title">Are you sure?</h2>
+        <p id="confirm-body"></p>
+        <div class="modal-actions">
+          <button type="button" class="ghost" data-close>Cancel</button>
+          <button type="submit" class="danger" id="confirm-ok">Confirm</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Toast container -->
+    <div id="toasts"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
