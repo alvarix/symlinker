@@ -101,12 +101,12 @@ function renderProject(project) {
     const tdPath = document.createElement('td');
     tdPath.className = 'path';
     const code = document.createElement('code');
-    code.textContent = item.relPath;
+    code.textContent = item.relPath === '.' ? (item.displayName || (project.sourceRoot.split('/').filter(Boolean).pop() + '/')) : item.relPath;
     tdPath.appendChild(code);
     tr.appendChild(tdPath);
 
     const tdType = document.createElement('td');
-    tdType.textContent = item.isFolder === false ? 'file' : (item.type || 'folder');
+    tdType.textContent = item.relPath === '.' ? 'project folder' : (item.isFolder === false ? 'file' : (item.type || 'folder'));
     tr.appendChild(tdType);
 
     const tdActions = document.createElement('td');
@@ -131,6 +131,34 @@ function renderProject(project) {
 }
 
 async function loadSourceBrowser(project) {
+  const folderName = project.sourceRoot.split('/').filter(Boolean).pop();
+  const rootNameEl = $('#link-root-name');
+  const linkRootBtn = $('#link-root-btn');
+
+  rootNameEl.textContent = folderName + '/';
+
+  const alreadyLinkedRoot = (project.items || []).some(i => i.relPath === '.');
+  linkRootBtn.disabled = alreadyLinkedRoot;
+  linkRootBtn.textContent = alreadyLinkedRoot ? 'Folder linked' : 'Link folder';
+
+  linkRootBtn.onclick = async () => {
+    linkRootBtn.disabled = true;
+    linkRootBtn.textContent = 'Linking…';
+    try {
+      const result = await window.api.items.linkRoot(project.id, { dryRun: isDryRun() });
+      if (result.skipped) {
+        toast('Already linked', 'info');
+      } else {
+        toast(isDryRun() ? `Dry run: would link ${result.folderName}/` : `Linked ${result.folderName}/`, 'success');
+      }
+    } catch (err) {
+      toast(err.message, 'error', 6000);
+      linkRootBtn.disabled = false;
+      linkRootBtn.textContent = 'Link folder';
+    }
+    await refresh();
+  };
+
   const list = $('#source-file-list');
   const emptyMsg = $('#source-browser-empty');
   const linkBtn = $('#link-selected-btn');
@@ -174,7 +202,14 @@ async function loadSourceBrowser(project) {
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'file-name';
-    nameSpan.textContent = entry.name;
+    const dir = entry.relPath.includes('/') ? entry.relPath.slice(0, entry.relPath.lastIndexOf('/') + 1) : '';
+    if (dir) {
+      const dirSpan = document.createElement('span');
+      dirSpan.className = 'file-dir muted';
+      dirSpan.textContent = dir;
+      nameSpan.appendChild(dirSpan);
+    }
+    nameSpan.appendChild(document.createTextNode(entry.name));
 
     const typeSpan = document.createElement('span');
     typeSpan.className = 'file-type muted';

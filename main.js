@@ -84,6 +84,22 @@ ipcMain.handle('projects:get', wrap(async (id) => {
   if (!project) throw new Error('Project not found');
   const itemStatuses = await Promise.all(
     project.items.map(async (item) => {
+      if (item.relPath === '.') {
+        const folderName = path.basename(project.sourceRoot);
+        const destPath = path.join(project.destRoot, folderName);
+        let state = 'missing-source';
+        try {
+          const stat = await fs.lstat(destPath);
+          if (stat.isSymbolicLink()) {
+            const target = await fs.readlink(destPath);
+            const resolved = path.isAbsolute(target) ? target : path.resolve(path.dirname(destPath), target);
+            state = resolved === path.resolve(project.sourceRoot) ? 'linked' : 'broken-target';
+          } else {
+            state = 'conflict';
+          }
+        } catch (err) { if (err.code !== 'ENOENT') throw err; }
+        return { ...item, state, displayName: folderName + '/' };
+      }
       const sourcePath = path.join(project.sourceRoot, item.relPath);
       const destPath = path.join(project.destRoot, item.relPath);
       const status = await linker.checkStatus(sourcePath, destPath);
@@ -149,6 +165,17 @@ ipcMain.handle('items:add', wrap(async ({ projectId, relPath, dryRun }) => {
 ipcMain.handle('items:remove', wrap(async ({ projectId, relPath, dryRun }) => {
   const project = await store.get(projectId);
   if (!project) throw new Error('Project not found');
+
+  // Root folder symlink: just remove the symlink at destRoot/<folderName>, nothing to move back
+  if (relPath === '.') {
+    const destPath = path.join(project.destRoot, path.basename(project.sourceRoot));
+    if (!dryRun) {
+      try { await fs.unlink(destPath); } catch (err) { if (err.code !== 'ENOENT') throw err; }
+      await store.removeItem(projectId, '.');
+    }
+    return { ok: true, plan: [{ op: 'rmsymlink', path: destPath }] };
+  }
+
   const sourcePath = path.join(project.sourceRoot, relPath);
   const destPath = path.join(project.destRoot, relPath);
   const result = await linker.unlink(sourcePath, destPath, { dryRun });
@@ -215,13 +242,69 @@ ipcMain.handle('paths:relative', wrap(async ({ from, to }) => {
 
 ipcMain.handle('paths:userData', wrap(async () => app.getPath('userData')));
 
+ipcMain.handle('items:linkRoot', wrap(async ({ projectId, dryRun }) => {
+  const project = await store.get(projectId);
+  if (!project) throw new Error('Project not found');
+  const folderName = path.basename(project.sourceRoot);
+  const destPath = path.join(project.destRoot, folderName);
+
+  try {
+    const stat = await fs.lstat(destPath);
+    if (stat.isSymbolicLink()) {
+      const target = await fs.readlink(destPath);
+      const resolved = path.isAbsolute(target) ? target : path.resolve(path.dirname(destPath), target);
+      if (resolved === path.resolve(project.sourceRoot)) {
+        return { ok: true, skipped: true, reason: 'already-linked', folderName };
+      }
+    }
+    throw new Error(`Cannot create project folder link: ${destPath} already exists`);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  if (dryRun) {
+    return { ok: true, dryRun: true, folderName, plan: [{ op: 'symlink', target: project.sourceRoot, link: destPath }] };
+  }
+
+  await fs.symlink(project.sourceRoot, destPath);
+  try {
+    await store.addItem(projectId, { relPath: '.', type: 'folder' });
+  } catch (err) {
+    if (!String(err.message).includes('already tracked')) throw err;
+  }
+  return { ok: true, folderName, destPath };
+}));
+
 ipcMain.handle('source:list', wrap(async (sourceRoot) => {
-  const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
-  return entries
-    .filter(e => !e.name.startsWith('.'))
-    .map(e => ({
-      name: e.name,
-      relPath: e.name,
-      type: e.isDirectory() ? 'folder' : 'file',
-    }));
+  const SKIP = new Set(['node_modules', '.git', '.obsidian', 'dist', 'build', '.cache', '__pycache__', '.DS_Store']);
+  const DOC_EXTS = new Set(['.md']);
+
+  async function collect(dir, relBase, depth) {
+    if (depth > 4) return [];
+    let entries;
+    try { entries = await fs.readdir(dir, { withFileTypes: true }); }
+    catch { return []; }
+
+    const results = [];
+    for (const e of entries) {
+      if (SKIP.has(e.name)) continue;
+      const relPath = relBase ? `${relBase}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (depth === 0 && e.name.startsWith('.')) {
+          // Link hidden top-level dirs (e.g. .claude) as whole folder units
+          results.push({ name: e.name, relPath, type: 'folder' });
+        } else {
+          const children = await collect(path.join(dir, e.name), relPath, depth + 1);
+          results.push(...children);
+        }
+      } else {
+        if (DOC_EXTS.has(path.extname(e.name).toLowerCase())) {
+          results.push({ name: e.name, relPath, type: 'file' });
+        }
+      }
+    }
+    return results;
+  }
+
+  return collect(sourceRoot, '', 0);
 }));

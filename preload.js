@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('api', {
     status: (projectId, relPath) => call('items:status', { projectId, relPath }),
     reverseAll: (projectId, opts = {}) =>
       call('items:reverseAll', { projectId, dryRun: !!opts.dryRun }),
+    linkRoot: (projectId, opts = {}) =>
+      call('items:linkRoot', { projectId, dryRun: !!opts.dryRun }),
   },
   dialog: {
     pickDirectory: (opts) => call('dialog:pickDirectory', opts),

@@ -398,6 +398,36 @@ dialog.modal input[type="text"]:focus {
   margin-bottom: 24px;
 }
 
+.link-root-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.link-root-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.link-root-name {
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.link-root-info .muted {
+  font-size: 12px;
+}
+
 .source-browser-header {
   display: flex;
   align-items: center;
@@ -457,7 +487,9 @@ dialog.modal input[type="text"]:focus {
 
 .source-file-item label:hover { background: var(--panel-2); }
 
-.file-name { flex: 1; }
+.file-name { flex: 1; font-family: ui-monospace, monospace; font-size: 12px; }
+
+.file-dir { font-size: 11px; }
 
 .file-type {
   font-size: 11px;

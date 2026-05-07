@@ -1,3 +1,7 @@
+# update mac app
+npm run dist
+
+
 # Symlinker
 
 A small Electron app for moving files or folders out of one location and into another, while leaving a symlink behind in the original spot. Built so that docs (or any other files) can live inside an Obsidian vault while still being reachable from a dev repo.
