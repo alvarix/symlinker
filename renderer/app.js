@@ -5,6 +5,7 @@
 const state = {
   projects: [],
   currentProjectId: null,
+  settings: {},
 };
 
 // ---------- Utilities ----------
@@ -426,9 +427,22 @@ function wireDialogs() {
     btn.addEventListener('click', () => btn.closest('dialog').close());
   });
 
+  // Default destination
+  $('#set-default-dest-btn').addEventListener('click', async () => {
+    const picked = await window.api.dialog.pickDirectory({ title: 'Set default destination' });
+    if (!picked) return;
+    state.settings = await window.api.settings.set({ defaultDestRoot: picked });
+    renderDefaultDest();
+    toast('Default destination saved', 'success');
+  });
+
   // New project dialog
   $('#new-project-btn').addEventListener('click', () => {
     $('#new-project-error').hidden = true;
+    const destInput = $('#new-project-form [name="destRoot"]');
+    if (!destInput.value && state.settings.defaultDestRoot) {
+      destInput.value = state.settings.defaultDestRoot;
+    }
     $('#new-project-dialog').showModal();
   });
   $('#new-project-form').addEventListener('submit', (e) => {
@@ -463,6 +477,20 @@ function wireDialogs() {
   });
 }
 
+function renderDefaultDest() {
+  const display = $('#default-dest-display');
+  const val = state.settings.defaultDestRoot;
+  display.textContent = val ? val.replace(/\/Users\/[^/]+/, '~') : 'Not set';
+  display.title = val || '';
+}
+
 // Initial load
 wireDialogs();
-refresh().catch((err) => toast(err.message, 'error'));
+
+async function init() {
+  state.settings = await window.api.settings.get().catch(() => ({}));
+  renderDefaultDest();
+  await refresh();
+}
+
+init().catch((err) => toast(err.message, 'error'));

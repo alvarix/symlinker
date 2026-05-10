@@ -15,6 +15,23 @@ const linker = require('./lib/linker');
 
 let store;
 let mainWindow;
+let settings = {};
+
+async function loadSettings(userData) {
+  try {
+    const raw = await fs.readFile(path.join(userData, 'settings.json'), 'utf8');
+    settings = JSON.parse(raw);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    settings = {};
+  }
+}
+
+async function saveSettings(userData) {
+  const p = path.join(userData, 'settings.json');
+  await fs.mkdir(path.dirname(p), { recursive: true });
+  await fs.writeFile(p, JSON.stringify(settings, null, 2), 'utf8');
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -36,6 +53,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   const userData = app.getPath('userData');
   store = new ProjectStore(path.join(userData, 'projects.json'));
+  await loadSettings(userData);
   createWindow();
 
   app.on('activate', () => {
@@ -241,6 +259,14 @@ ipcMain.handle('paths:relative', wrap(async ({ from, to }) => {
 }));
 
 ipcMain.handle('paths:userData', wrap(async () => app.getPath('userData')));
+
+ipcMain.handle('settings:get', wrap(async () => settings));
+
+ipcMain.handle('settings:set', wrap(async (patch) => {
+  Object.assign(settings, patch);
+  await saveSettings(app.getPath('userData'));
+  return settings;
+}));
 
 ipcMain.handle('items:linkRoot', wrap(async ({ projectId, dryRun }) => {
   const project = await store.get(projectId);

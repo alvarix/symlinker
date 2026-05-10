@@ -47,4 +47,8 @@ contextBridge.exposeInMainWorld('api', {
   source: {
     list: (sourceRoot) => call('source:list', sourceRoot),
   },
+  settings: {
+    get: () => call('settings:get'),
+    set: (patch) => call('settings:set', patch),
+  },
 });

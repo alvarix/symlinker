@@ -1,7 +1,3 @@
-# update mac app
-npm run dist
-
-
 # Symlinker
 
 A small Electron app for moving files or folders out of one location and into another, while leaving a symlink behind in the original spot. Built so that docs (or any other files) can live inside an Obsidian vault while still being reachable from a dev repo.
@@ -41,6 +37,28 @@ Run the smoke test against the linker module:
 
 ```sh
 npm test
+```
+
+## Updating the app after code changes
+
+| What changed | How to apply |
+|---|---|
+| `renderer/` (HTML, CSS, app.js) | `Cmd+R` in the Electron window |
+| `main.js` or `preload.js` | Kill the process, run `npm start` again |
+| Anything | Run `npm run dist` to rebuild the `.app` |
+
+The installed `.app` does not hot-reload — any code change requires a rebuild:
+
+```sh
+npm run dist
+```
+
+Output goes to `dist/`. Use `Symlinker-x.x.x-arm64.dmg` on Apple Silicon.
+
+**First launch after install:** macOS blocks unsigned apps. Right-click → Open, or strip the quarantine flag:
+
+```sh
+xattr -cr /Applications/Symlinker.app
 ```
 
 ## Safety notes
