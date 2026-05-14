@@ -13,6 +13,19 @@ const fs = require('fs').promises;
 const { ProjectStore } = require('./lib/projects');
 const linker = require('./lib/linker');
 
+/**
+ * Compute the destination path for an item, respecting the project's mode.
+ * @param {{ destRoot: string, mode?: string }} project
+ * @param {string} relPath - item's relPath within sourceRoot
+ * @returns {string}
+ */
+function destPathFor(project, relPath) {
+  if (project.mode === 'flat') {
+    return path.join(project.destRoot, path.basename(relPath));
+  }
+  return path.join(project.destRoot, relPath);
+}
+
 let store;
 let mainWindow;
 let settings = {};
@@ -87,7 +100,7 @@ ipcMain.handle('projects:list', wrap(async () => {
       itemStatuses: await Promise.all(
         p.items.map(async (item) => {
           const sourcePath = path.join(p.sourceRoot, item.relPath);
-          const destPath = path.join(p.destRoot, item.relPath);
+          const destPath = destPathFor(p, item.relPath);
           const status = await linker.checkStatus(sourcePath, destPath);
           return { relPath: item.relPath, ...status };
         })
@@ -119,7 +132,7 @@ ipcMain.handle('projects:get', wrap(async (id) => {
         return { ...item, state, displayName: folderName + '/' };
       }
       const sourcePath = path.join(project.sourceRoot, item.relPath);
-      const destPath = path.join(project.destRoot, item.relPath);
+      const destPath = destPathFor(project, item.relPath);
       const status = await linker.checkStatus(sourcePath, destPath);
       return { ...item, ...status };
     })
@@ -127,7 +140,7 @@ ipcMain.handle('projects:get', wrap(async (id) => {
   return { ...project, items: itemStatuses };
 }));
 
-ipcMain.handle('projects:create', wrap(async ({ name, sourceRoot, destRoot }) => {
+ipcMain.handle('projects:create', wrap(async ({ name, sourceRoot, destRoot, mode }) => {
   // Validate roots
   try {
     const stat = await fs.stat(sourceRoot);
@@ -138,7 +151,7 @@ ipcMain.handle('projects:create', wrap(async ({ name, sourceRoot, destRoot }) =>
   }
   // Dest root: create if missing
   await fs.mkdir(destRoot, { recursive: true });
-  return store.create({ name, sourceRoot, destRoot });
+  return store.create({ name, sourceRoot, destRoot, mode });
 }));
 
 ipcMain.handle('projects:rename', wrap(async ({ id, name }) => {
@@ -153,7 +166,7 @@ ipcMain.handle('items:add', wrap(async ({ projectId, relPath, dryRun }) => {
   const project = await store.get(projectId);
   if (!project) throw new Error('Project not found');
   const sourcePath = path.join(project.sourceRoot, relPath);
-  const destPath = path.join(project.destRoot, relPath);
+  const destPath = destPathFor(project, relPath);
   // Determine type from source
   let type = 'folder';
   try {
@@ -195,7 +208,7 @@ ipcMain.handle('items:remove', wrap(async ({ projectId, relPath, dryRun }) => {
   }
 
   const sourcePath = path.join(project.sourceRoot, relPath);
-  const destPath = path.join(project.destRoot, relPath);
+  const destPath = destPathFor(project, relPath);
   const result = await linker.unlink(sourcePath, destPath, { dryRun });
   if (!dryRun) {
     await store.removeItem(projectId, relPath);
@@ -207,7 +220,7 @@ ipcMain.handle('items:status', wrap(async ({ projectId, relPath }) => {
   const project = await store.get(projectId);
   if (!project) throw new Error('Project not found');
   const sourcePath = path.join(project.sourceRoot, relPath);
-  const destPath = path.join(project.destRoot, relPath);
+  const destPath = destPathFor(project, relPath);
   return linker.checkStatus(sourcePath, destPath);
 }));
 
@@ -217,7 +230,7 @@ ipcMain.handle('items:reverseAll', wrap(async ({ projectId, dryRun }) => {
   const results = [];
   for (const item of project.items) {
     const sourcePath = path.join(project.sourceRoot, item.relPath);
-    const destPath = path.join(project.destRoot, item.relPath);
+    const destPath = destPathFor(project, item.relPath);
     try {
       const r = await linker.unlink(sourcePath, destPath, { dryRun });
       results.push({ relPath: item.relPath, ok: true, ...r });
