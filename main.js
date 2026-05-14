@@ -12,19 +12,7 @@ const fs = require('fs').promises;
 
 const { ProjectStore } = require('./lib/projects');
 const linker = require('./lib/linker');
-
-/**
- * Compute the destination path for an item, respecting the project's mode.
- * @param {{ destRoot: string, mode?: string }} project
- * @param {string} relPath - item's relPath within sourceRoot
- * @returns {string}
- */
-function destPathFor(project, relPath) {
-  if (project.mode === 'flat') {
-    return path.join(project.destRoot, path.basename(relPath));
-  }
-  return path.join(project.destRoot, relPath);
-}
+const { destPathFor, validateFlatBasename } = require('./lib/paths');
 
 let store;
 let mainWindow;
@@ -165,6 +153,7 @@ ipcMain.handle('projects:remove', wrap(async (id) => {
 ipcMain.handle('items:add', wrap(async ({ projectId, relPath, dryRun }) => {
   const project = await store.get(projectId);
   if (!project) throw new Error('Project not found');
+  validateFlatBasename(project, relPath);
   const sourcePath = path.join(project.sourceRoot, relPath);
   const destPath = destPathFor(project, relPath);
   // Determine type from source
