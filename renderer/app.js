@@ -78,6 +78,10 @@ function renderProject(project) {
   $('#project-detail').hidden = !project;
   if (!project) return;
 
+  const isFlat = project.mode === 'flat';
+  $('#flat-browser').hidden = !isFlat;
+  $('#source-browser').hidden = isFlat;
+
   $('#project-name').textContent = project.name;
   $('#project-source').textContent = project.sourceRoot;
   $('#project-source').dataset.path = project.sourceRoot;
@@ -102,7 +106,15 @@ function renderProject(project) {
     const tdPath = document.createElement('td');
     tdPath.className = 'path';
     const code = document.createElement('code');
-    code.textContent = item.relPath === '.' ? (item.displayName || (project.sourceRoot.split('/').filter(Boolean).pop() + '/')) : item.relPath;
+    let displayPath;
+    if (item.relPath === '.') {
+      displayPath = item.displayName || (project.sourceRoot.split('/').filter(Boolean).pop() + '/');
+    } else if (isFlat) {
+      displayPath = item.relPath.split('/').pop();
+    } else {
+      displayPath = item.relPath;
+    }
+    code.textContent = displayPath;
     tdPath.appendChild(code);
     tr.appendChild(tdPath);
 
@@ -131,7 +143,38 @@ function renderProject(project) {
   }
 }
 
+async function loadFlatBrowser(project) {
+  const btn = $('#flat-add-btn');
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Picking...';
+    try {
+      const picked = await window.api.dialog.pickItem({
+        title: 'Pick a file to link into this project',
+        defaultPath: project.sourceRoot,
+      });
+      if (!picked) return;
+
+      const relPath = await window.api.paths.relative(project.sourceRoot, picked);
+      if (relPath.startsWith('..')) {
+        toast('File must be inside the source root', 'error');
+        return;
+      }
+
+      await window.api.items.add(project.id, relPath, { dryRun: isDryRun() });
+      toast(isDryRun() ? `Dry run: would link ${relPath.split('/').pop()}` : `Linked ${relPath.split('/').pop()}`, 'success');
+      await refresh();
+    } catch (err) {
+      toast(err.message, 'error', 6000);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add file...';
+    }
+  };
+}
+
 async function loadSourceBrowser(project) {
+  if (project.mode === 'flat') return;
   const folderName = project.sourceRoot.split('/').filter(Boolean).pop();
   const rootNameEl = $('#link-root-name');
   const linkRootBtn = $('#link-root-btn');
@@ -280,7 +323,10 @@ async function refresh() {
   if (state.currentProjectId) {
     const project = await window.api.projects.get(state.currentProjectId).catch(() => null);
     renderProject(project);
-    if (project) await loadSourceBrowser(project);
+    if (project) {
+      if (project.mode === 'flat') await loadFlatBrowser(project);
+      else await loadSourceBrowser(project);
+    }
   } else {
     renderProject(null);
   }
@@ -291,7 +337,8 @@ async function selectProject(id) {
   const project = await window.api.projects.get(id);
   renderProjectList();
   renderProject(project);
-  await loadSourceBrowser(project);
+  if (project.mode === 'flat') await loadFlatBrowser(project);
+  else await loadSourceBrowser(project);
 }
 
 async function onCreateProject(form) {
