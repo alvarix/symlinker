@@ -145,7 +145,20 @@ function renderProject(project) {
 
 async function loadFlatBrowser(project) {
   const btn = $('#flat-add-btn');
+  const errEl = $('#flat-add-error');
+
+  function showFlatError(msg) {
+    errEl.textContent = msg;
+    errEl.hidden = false;
+  }
+
+  function clearFlatError() {
+    errEl.hidden = true;
+    errEl.textContent = '';
+  }
+
   btn.onclick = async () => {
+    clearFlatError();
     btn.disabled = true;
     btn.textContent = 'Picking...';
     try {
@@ -157,15 +170,30 @@ async function loadFlatBrowser(project) {
 
       const relPath = await window.api.paths.relative(project.sourceRoot, picked);
       if (relPath.startsWith('..')) {
-        toast('File must be inside the source root', 'error');
+        showFlatError('File must be inside the source root.');
+        return;
+      }
+
+      // Pre-check basename collision before calling core
+      const basename = relPath.split('/').pop();
+      const existing = (project.items || []).find(
+        (i) => i.relPath.split('/').pop() === basename
+      );
+      if (existing) {
+        showFlatError(`"${basename}" is already linked from ${existing.relPath}`);
         return;
       }
 
       await window.api.items.add(project.id, relPath, { dryRun: isDryRun() });
-      toast(isDryRun() ? `Dry run: would link ${relPath.split('/').pop()}` : `Linked ${relPath.split('/').pop()}`, 'success');
+      toast(isDryRun() ? `Dry run: would link ${basename}` : `Linked ${basename}`, 'success');
       await refresh();
     } catch (err) {
-      toast(err.message, 'error', 6000);
+      // Core collision guard or other error
+      if (err.message.includes('Basename collision')) {
+        showFlatError(err.message.replace('Basename collision: ', ''));
+      } else {
+        toast(err.message, 'error', 6000);
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = 'Add file...';

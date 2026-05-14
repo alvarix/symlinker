@@ -589,6 +589,8 @@ dialog.modal input[type="text"]:focus {
 
 .flat-browser-header p { margin: 0; font-size: 12px; }
 
+.flat-add-error { margin: 8px 0 0; }
+
 /* Toasts */
 #toasts {
   position: fixed;
