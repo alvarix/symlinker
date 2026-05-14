@@ -8,6 +8,7 @@
 
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
+const os = require('os');
 const fs = require('fs').promises;
 
 const { ProjectStore } = require('./lib/projects');
@@ -262,7 +263,10 @@ ipcMain.handle('paths:relative', wrap(async ({ from, to }) => {
 
 ipcMain.handle('paths:userData', wrap(async () => app.getPath('userData')));
 
-ipcMain.handle('settings:get', wrap(async () => settings));
+ipcMain.handle('settings:get', wrap(async () => ({
+  defaultFlatDestRoot: path.join(os.homedir(), 'Sites'),
+  ...settings,
+})));
 
 ipcMain.handle('settings:set', wrap(async (patch) => {
   Object.assign(settings, patch);

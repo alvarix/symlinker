@@ -531,6 +531,42 @@ dialog.modal input[type="text"]:focus {
   letter-spacing: 0.4px;
 }
 
+/* Mode picker (new-project dialog) */
+.mode-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px 12px;
+  margin: 0 0 14px;
+}
+
+.mode-fieldset legend {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mode-option:last-child { margin-bottom: 0; }
+
+.mode-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-option strong { font-size: 13px; color: var(--text); }
+
 /* Toasts */
 #toasts {
   position: fixed;

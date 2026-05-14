@@ -299,6 +299,7 @@ async function onCreateProject(form) {
   const name = data.get('name')?.trim();
   const sourceRoot = data.get('sourceRoot')?.trim();
   const destRoot = data.get('destRoot')?.trim();
+  const mode = data.get('mode') || 'mirror';
   const errBox = $('#new-project-error');
   errBox.hidden = true;
   try {
@@ -306,6 +307,7 @@ async function onCreateProject(form) {
       name: name || undefined,
       sourceRoot,
       destRoot,
+      mode,
     });
     state.currentProjectId = project.id;
     await refresh();
@@ -427,23 +429,52 @@ function wireDialogs() {
     btn.addEventListener('click', () => btn.closest('dialog').close());
   });
 
-  // Default destination
+  // Default destination (mirror)
   $('#set-default-dest-btn').addEventListener('click', async () => {
-    const picked = await window.api.dialog.pickDirectory({ title: 'Set default destination' });
+    const picked = await window.api.dialog.pickDirectory({ title: 'Set default destination (mirror)' });
     if (!picked) return;
     state.settings = await window.api.settings.set({ defaultDestRoot: picked });
     renderDefaultDest();
-    toast('Default destination saved', 'success');
+    toast('Default mirror destination saved', 'success');
+  });
+
+  // Default destination (flat)
+  $('#set-default-flat-dest-btn').addEventListener('click', async () => {
+    const picked = await window.api.dialog.pickDirectory({ title: 'Set default destination (flat)' });
+    if (!picked) return;
+    state.settings = await window.api.settings.set({ defaultFlatDestRoot: picked });
+    renderDefaultDest();
+    toast('Default flat destination saved', 'success');
   });
 
   // New project dialog
   $('#new-project-btn').addEventListener('click', () => {
     $('#new-project-error').hidden = true;
+    // Reset mode radio to mirror each time dialog opens
+    const mirrorRadio = $('#new-project-form [name="mode"][value="mirror"]');
+    mirrorRadio.checked = true;
     const destInput = $('#new-project-form [name="destRoot"]');
     if (!destInput.value && state.settings.defaultDestRoot) {
       destInput.value = state.settings.defaultDestRoot;
     }
+    updateDestHint('mirror');
     $('#new-project-dialog').showModal();
+  });
+
+  // Swap dest default when mode radio changes
+  $$('#new-project-form [name="mode"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      const destInput = $('#new-project-form [name="destRoot"]');
+      const mirrorDefault = state.settings.defaultDestRoot || '';
+      const flatDefault = state.settings.defaultFlatDestRoot || '';
+      if (radio.value === 'flat') {
+        if (!destInput.value || destInput.value === mirrorDefault) destInput.value = flatDefault;
+      } else {
+        if (!destInput.value || destInput.value === flatDefault) destInput.value = mirrorDefault;
+      }
+      updateDestHint(radio.value);
+    });
   });
   $('#new-project-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -478,10 +509,23 @@ function wireDialogs() {
 }
 
 function renderDefaultDest() {
-  const display = $('#default-dest-display');
   const val = state.settings.defaultDestRoot;
+  const display = $('#default-dest-display');
   display.textContent = val ? val.replace(/\/Users\/[^/]+/, '~') : 'Not set';
   display.title = val || '';
+
+  const flatVal = state.settings.defaultFlatDestRoot;
+  const flatDisplay = $('#default-flat-dest-display');
+  flatDisplay.textContent = flatVal ? flatVal.replace(/\/Users\/[^/]+/, '~') : '~/Sites';
+  flatDisplay.title = flatVal || '';
+}
+
+function updateDestHint(mode) {
+  const hint = $('#new-project-dest-hint');
+  if (!hint) return;
+  hint.textContent = mode === 'flat'
+    ? 'Where symlinks will land in your project (e.g. a repo root).'
+    : 'Where the actual files will live (e.g. an Obsidian vault subfolder).';
 }
 
 // Initial load
